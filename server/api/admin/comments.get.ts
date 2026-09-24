@@ -1,0 +1,1 @@
+import { db } from '../../utils/db';import { requireAdmin } from '../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);return db.comment.findMany({orderBy:{createdAt:'desc'},take:200,include:{post:{select:{title:true}},page:{select:{title:true}}}})})

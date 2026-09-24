@@ -1,0 +1,2 @@
+import {describe,it,expect} from 'vitest';import {contentMetrics,renderMarkdown} from '../../server/utils/content'
+describe('content pipeline',()=>{it('computes readable metrics',()=>{expect(contentMetrics('你好 world').wordCount).toBe(3)});it('removes dangerous scripts',async()=>{const html=await renderMarkdown('# Safe\n<script>alert(1)</script>');expect(html).toContain('<h1>Safe</h1>');expect(html).not.toContain('<script>')})})

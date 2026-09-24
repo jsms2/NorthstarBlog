@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContentStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  PRIVATE
+  TRASH
+}
+enum CommentStatus {
+  PENDING
+  APPROVED
+  SPAM
+  TRASH
+}
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  ARCHIVE
+  OTHER
+}
+
+model Admin {
+  id String @id @default(cuid())
+  username String @unique @db.VarChar(64)
+  email String @unique @db.VarChar(191)
+  passwordHash String @db.VarChar(255)
+  totpSecret String? @db.Text
+  pendingTotpSecret String? @db.Text
+  recoveryCodes Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions Session[]
+  challenges AuthChallenge[]
+  posts Post[]
+  pages Page[]
+}
+model Session {
+  id String @id @default(cuid())
+  tokenHash String @unique @db.Char(64)
+  adminId String
+  expiresAt DateTime
+  userAgent String? @db.VarChar(500)
+  ipHash String? @db.Char(64)
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  @@index([adminId, expiresAt])
+}
+model AuthChallenge {
+  id String @id @default(cuid())
+  adminId String
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+}
+model Post {
+  id String @id @default(cuid())
+  title String @db.VarChar(255)
+  slug String @unique @db.VarChar(191)
+  excerpt String? @db.Text
+  markdown String @db.LongText
+  html String @db.LongText
+  editorJson Json?
+  searchText String @db.LongText
+  coverUrl String? @db.VarChar(1000)
+  status ContentStatus @default(DRAFT)
+  featured Boolean @default(false)
+  pinned Boolean @default(false)
+  allowComments Boolean @default(true)
+  showToc Boolean @default(true)
+  wordCount Int @default(0)
+  readingMinutes Int @default(1)
+  views Int @default(0)
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  deletedAt DateTime?
+  seoTitle String? @db.VarChar(255)
+  seoDescription String? @db.VarChar(500)
+  canonicalUrl String? @db.VarChar(1000)
+  ogTitle String? @db.VarChar(255)
+  ogDescription String? @db.VarChar(500)
+  noindex Boolean @default(false)
+  nofollow Boolean @default(false)
+  ogImage String? @db.VarChar(1000)
+  cssClass String? @db.VarChar(191)
+  headCode String? @db.LongText
+  footerCode String? @db.LongText
+  authorId String
+  categoryId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author Admin @relation(fields: [authorId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags PostTag[]
+  seriesLinks SeriesPost[]
+  revisions PostRevision[]
+  comments Comment[]
+  redirects Redirect[]
+  @@index([status, publishedAt])
+  @@index([status, scheduledAt])
+  @@index([categoryId])
+  @@fulltext([title, excerpt, searchText])
+}
+model PostRevision {
+  id String @id @default(cuid())
+  postId String
+  title String @db.VarChar(255)
+  markdown String @db.LongText
+  editorJson Json?
+  summary String? @db.VarChar(255)
+  createdAt DateTime @default(now())
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@index([postId, createdAt])
+}
+model Page {
+  id String @id @default(cuid())
+  title String @db.VarChar(255)
+  slug String @unique @db.VarChar(191)
+  markdown String @db.LongText
+  html String @db.LongText
+  status ContentStatus @default(DRAFT)
+  template String @default("default") @db.VarChar(64)
+  allowComments Boolean @default(false)
+  customCss String? @db.LongText
+  customJs String? @db.LongText
+  seoTitle String? @db.VarChar(255)
+  seoDescription String? @db.VarChar(500)
+  canonicalUrl String? @db.VarChar(1000)
+  ogTitle String? @db.VarChar(255)
+  ogDescription String? @db.VarChar(500)
+  ogImage String? @db.VarChar(1000)
+  excerpt String? @db.Text
+  noindex Boolean @default(false)
+  nofollow Boolean @default(false)
+  deletedAt DateTime?
+  publishedAt DateTime?
+  authorId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author Admin @relation(fields: [authorId], references: [id])
+  comments Comment[]
+  @@index([status, publishedAt])
+}
+model Category {
+  id String @id @default(cuid())
+  name String @db.VarChar(100)
+  slug String @unique @db.VarChar(191)
+  description String? @db.Text
+  seoTitle String? @db.VarChar(255)
+  seoDescription String? @db.VarChar(500)
+  position Int @default(0)
+  coverUrl String? @db.VarChar(1000)
+  parentId String?
+  parent Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  posts Post[]
+  @@index([parentId])
+}
+model Tag {
+  id String @id @default(cuid())
+  name String @db.VarChar(100)
+  slug String @unique @db.VarChar(191)
+  description String? @db.Text
+  color String? @db.VarChar(20)
+  seoTitle String? @db.VarChar(255)
+  seoDescription String? @db.VarChar(500)
+  posts PostTag[]
+}
+model PostTag {
+  postId String
+  tagId String
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([postId, tagId])
+  @@index([tagId])
+}
+model Series {
+  id String @id @default(cuid())
+  name String @db.VarChar(150)
+  slug String @unique @db.VarChar(191)
+  description String? @db.Text
+  coverUrl String? @db.VarChar(1000)
+  seoTitle String? @db.VarChar(255)
+  seoDescription String? @db.VarChar(500)
+  posts SeriesPost[]
+}
+model SeriesPost {
+  seriesId String
+  postId String
+  position Int @default(0)
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@id([seriesId, postId])
+  @@unique([seriesId, position])
+}
+model Comment {
+  id String @id @default(cuid())
+  postId String?
+  pageId String?
+  parentId String?
+  authorName String @db.VarChar(100)
+  email String @db.VarChar(191)
+  website String? @db.VarChar(500)
+  content String @db.Text
+  status CommentStatus @default(PENDING)
+  pinned Boolean @default(false)
+  isAdmin Boolean @default(false)
+  likes Int @default(0)
+  ipHash String? @db.Char(64)
+  createdAt DateTime @default(now())
+  post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  parent Comment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentThread")
+  @@index([postId, status, createdAt])
+  @@index([pageId, status, createdAt])
+  @@index([parentId])
+}
+model Media {
+  id String @id @default(cuid())
+  storageKey String @unique @db.VarChar(500)
+  url String @db.VarChar(1000)
+  filename String @db.VarChar(255)
+  mimeType String @db.VarChar(150)
+  type MediaType
+  size Int
+  width Int?
+  height Int?
+  alt String? @db.VarChar(500)
+  caption String? @db.Text
+  createdAt DateTime @default(now())
+  @@index([type, createdAt])
+}
+model Navigation {
+  id String @id @default(cuid())
+  location String @db.VarChar(20)
+  label String @db.VarChar(100)
+  url String @db.VarChar(1000)
+  icon String? @db.VarChar(100)
+  newWindow Boolean @default(false)
+  position Int @default(0)
+  parentId String?
+  parent Navigation? @relation("NavigationTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Navigation[] @relation("NavigationTree")
+  @@index([location, position])
+}
+model Link {
+  id String @id @default(cuid())
+  name String @db.VarChar(150)
+  url String @db.VarChar(1000)
+  logo String? @db.VarChar(1000)
+  description String? @db.VarChar(500)
+  group String? @db.VarChar(100)
+  position Int @default(0)
+  visible Boolean @default(true)
+}
+model Redirect {
+  id String @id @default(cuid())
+  source String @unique @db.VarChar(500)
+  destination String @db.VarChar(1000)
+  statusCode Int @default(301)
+  enabled Boolean @default(true)
+  postId String?
+  createdAt DateTime @default(now())
+  post Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+}
+model Setting {
+  key String @id @db.VarChar(191)
+  value Json
+  group String @db.VarChar(50)
+  updatedAt DateTime @updatedAt
+  @@index([group])
+}
+model AnalyticsEvent {
+  id BigInt @id @default(autoincrement())
+  path String @db.VarChar(500)
+  postId String? @db.VarChar(30)
+  visitorHash String @db.Char(64)
+  referrer String? @db.VarChar(1000)
+  utmSource String? @db.VarChar(191)
+  utmMedium String? @db.VarChar(191)
+  utmCampaign String? @db.VarChar(191)
+  browser String? @db.VarChar(80)
+  os String? @db.VarChar(80)
+  device String? @db.VarChar(40)
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@index([postId, createdAt])
+}
+model AnalyticsAggregate {
+  id String @id @default(cuid())
+  date DateTime @db.Date
+  path String @db.VarChar(500)
+  dimension String @default("path") @db.VarChar(40)
+  value String @default("") @db.VarChar(500)
+  views Int @default(0)
+  visitors Int @default(0)
+  @@unique([date, dimension, value])
+}
+model AnalyticsVisitorDay {
+  id String @id @default(cuid())
+  date DateTime @db.Date
+  visitorHash String @db.Char(64)
+  createdAt DateTime @default(now())
+  @@unique([date, visitorHash])
+  @@index([date])
+}
+model Backup {
+  id String @id @default(cuid())
+  filename String @unique @db.VarChar(255)
+  size BigInt
+  status String @db.VarChar(30)
+  createdAt DateTime @default(now())
+}

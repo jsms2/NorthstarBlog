@@ -1,0 +1,1 @@
+import { db } from '../../utils/db';import { requireAdmin } from '../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);const rows=await db.setting.findMany();return Object.fromEntries(rows.map(r=>[r.key,r.value]))})

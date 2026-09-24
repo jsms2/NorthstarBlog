@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);return db.category.findMany({orderBy:[{position:'asc'},{name:'asc'}],include:{_count:{select:{posts:true,children:true}},parent:{select:{id:true,name:true}}}})})

@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);return db.series.findMany({orderBy:{name:'asc'},include:{posts:{orderBy:{position:'asc'},include:{post:{select:{id:true,title:true,slug:true,status:true}}}}}})})

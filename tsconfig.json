@@ -1,0 +1,4 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": { "noUncheckedIndexedAccess": false, "esModuleInterop": true, "allowSyntheticDefaultImports": true }
+}

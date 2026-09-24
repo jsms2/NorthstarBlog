@@ -1,0 +1,1 @@
+<script setup lang="ts">const {data}=await useFetch('/api/public/pages/about')</script><template><article class="container py-16"><ContentRenderer v-if="data" class="prose mx-auto" :html="data.html"/><div v-else class="prose mx-auto"><h1>关于</h1><p>你好，我是这个博客的作者。这里用于记录探索、创造与成长。</p></div></article></template>

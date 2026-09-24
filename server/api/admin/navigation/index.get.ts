@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);return db.navigation.findMany({orderBy:[{location:'asc'},{position:'asc'}],include:{children:{orderBy:{position:'asc'}}}})})

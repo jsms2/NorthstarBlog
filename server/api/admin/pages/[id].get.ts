@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);const page=await db.page.findUnique({where:{id:getRouterParam(event,'id')!}});if(!page)throw createError({statusCode:404});return page})

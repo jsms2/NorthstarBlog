@@ -1,0 +1,2 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security'
+export default defineEventHandler(async(event)=>{await requireAdmin(event);const q=getQuery(event);const status=typeof q.status==='string'&&q.status?String(q.status).toUpperCase():undefined;return db.post.findMany({where:status?{status:status as 'DRAFT'}:{},orderBy:{updatedAt:'desc'},take:100,select:{id:true,title:true,slug:true,status:true,updatedAt:true,publishedAt:true,views:true}})})

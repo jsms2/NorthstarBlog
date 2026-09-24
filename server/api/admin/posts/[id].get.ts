@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);const post=await db.post.findUnique({where:{id:getRouterParam(event,'id')!},include:{tags:true,revisions:{orderBy:{createdAt:'desc'},take:20}}});if(!post)throw createError({statusCode:404});return post})

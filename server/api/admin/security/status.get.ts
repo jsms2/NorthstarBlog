@@ -1,0 +1,2 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security'
+export default defineEventHandler(async(event)=>{const admin=await requireAdmin(event);const row=await db.admin.findUniqueOrThrow({where:{id:admin.id},select:{totpSecret:true,pendingTotpSecret:true,recoveryCodes:true}});return {enabled:Boolean(row.totpSecret),pending:Boolean(row.pendingTotpSecret),recoveryCodesRemaining:Array.isArray(row.recoveryCodes)?row.recoveryCodes.length:0}})

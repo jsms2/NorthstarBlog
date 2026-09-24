@@ -1,0 +1,1 @@
+import { logout,requireAdmin,requireCsrf } from '../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);requireCsrf(event);await logout(event);return {ok:true}})

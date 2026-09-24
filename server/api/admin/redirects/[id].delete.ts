@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin,requireCsrf } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);requireCsrf(event);await db.redirect.delete({where:{id:getRouterParam(event,'id')!}});return {ok:true}})

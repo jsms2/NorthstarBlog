@@ -1,0 +1,1 @@
+import { db } from '../../../utils/db';import { requireAdmin } from '../../../utils/security';export default defineEventHandler(async(event)=>{await requireAdmin(event);const q=String(getQuery(event).q||'');return db.tag.findMany({where:q?{OR:[{name:{contains:q}},{slug:{contains:q}}]}:{},orderBy:{name:'asc'},include:{_count:{select:{posts:true}}}})})
