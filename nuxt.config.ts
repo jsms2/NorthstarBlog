@@ -2,7 +2,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-15',
   devtools: { enabled: false },
   modules: ['@nuxt/eslint', '@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/main.css'],
+  css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],
   runtimeConfig: {
     sessionSecret: process.env.SESSION_SECRET,
     encryptionSecret: process.env.ENCRYPTION_SECRET,

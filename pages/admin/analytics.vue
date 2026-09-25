@@ -1,12 +1,13 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 const range = ref(30)
-const { data, refresh } = await useFetch('/api/admin/analytics', { query: { range } })
-watch(range, () => refresh())
+const { data, error, pending } = await useFetch('/api/admin/analytics', { query: { range } })
 const max = computed(() => Math.max(1, ...(data.value?.trend || []).map((x) => x.views)))
 </script>
 <template>
   <div>
+    <p v-if="error" role="alert" class="mb-5 rounded-lg bg-red-50 p-4 text-red-800">统计加载失败，请稍后重试。</p>
+    <p v-if="pending" role="status" class="mb-5 text-sm">正在加载统计…</p>
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-sm" style="color: var(--muted)">Privacy-friendly, self-hosted</p>

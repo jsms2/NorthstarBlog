@@ -14,8 +14,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
-import TurndownService from 'turndown'
-import { marked } from 'marked'
+import { htmlToMarkdown } from '~/lib/editor-markdown'
 import {
   Callout,
   Details,
@@ -34,11 +33,23 @@ const emit = defineEmits<{
   (e: 'update:json', value: unknown): void
 }>()
 const csrf = useCsrf()
-const mode = ref<'visual' | 'markdown' | 'preview'>('visual')
+const mode = ref<'visual' | 'markdown' | 'preview'>(props.json ? 'visual' : 'markdown')
 const markdown = ref(props.modelValue)
+const contentSource = ref<'visual' | 'markdown'>(props.json ? 'visual' : 'markdown')
+const previewHtml = ref('')
+const previewError = ref('')
+const previewLoading = ref(false)
+const editorError = ref('')
 const slash = ref({ open: false, query: '', x: 0, y: 0 })
 const menuIndex = ref(0)
 const mediaOpen = ref(false)
+const tableDialog = ref(false)
+const tableRows = ref(3)
+const tableCols = ref(3)
+const inTable = ref(false)
+function openTableDialog() {
+  tableDialog.value = true
+}
 const media = ref<
   Array<{
     id: string
@@ -79,7 +90,7 @@ const entries = computed<MenuEntry[]>(() => {
     {
       label: 'Table',
       icon: '▤',
-      run: () => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      run: openTableDialog,
     },
     {
       label: 'Callout',
@@ -162,7 +173,7 @@ async function upload(file: File) {
   })
 }
 const editor = useEditor({
-  content: props.json || props.modelValue || '<p></p>',
+  content: props.json || '<p></p>',
   extensions: [
     StarterKit.configure({ codeBlock: false }),
     Underline,
@@ -223,13 +234,15 @@ const editor = useEditor({
     },
   },
   onUpdate: ({ editor: e }) => {
-    if (!suppress) {
+    inTable.value = e.isActive('table')
+    if (!suppress && mode.value === 'visual') {
+      contentSource.value = 'visual'
       const html = e.getHTML()
       emit('update:html', html)
       emit('update:json', e.getJSON())
       emit(
         'update:modelValue',
-        new TurndownService({ codeBlockStyle: 'fenced', headingStyle: 'atx' }).turndown(html),
+        htmlToMarkdown(html),
       )
     }
     const { $from } = e.state.selection
@@ -242,7 +255,19 @@ const editor = useEditor({
       menuIndex.value = 0
     } else slash.value.open = false
   },
+  onSelectionUpdate: ({ editor: e }) => {
+    inTable.value = e.isActive('table')
+  },
 })
+function insertTable() {
+  const rows = Math.max(1, Math.min(20, Number(tableRows.value) || 3))
+  const cols = Math.max(1, Math.min(20, Number(tableCols.value) || 3))
+  tableRows.value = rows
+  tableCols.value = cols
+  editor.value?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+  inTable.value = true
+  tableDialog.value = false
+}
 function execute(entry: MenuEntry) {
   const e = editor.value
   if (!e) return
@@ -318,24 +343,83 @@ function importMarkdown(file: File) {
   }
   reader.readAsText(file)
 }
-async function switchMode(next: 'visual' | 'markdown' | 'preview') {
-  if (next === 'visual' && mode.value !== 'visual' && editor.value) {
-    suppress = true
-    editor.value.commands.setContent(await marked.parse(markdown.value))
-    suppress = false
-    emit('update:json', editor.value.getJSON())
-    emit('update:html', editor.value.getHTML())
-  }
-  if (next === 'markdown' && mode.value === 'visual' && editor.value)
-    markdown.value = new TurndownService({
-      codeBlockStyle: 'fenced',
-      headingStyle: 'atx',
-    }).turndown(editor.value.getHTML())
-  mode.value = next
-  if (next === 'markdown') emit('update:json', undefined)
+async function renderPreview(body: { markdown: string } | { html: string }) {
+  const result = await $fetch<{ html: string }>('/api/admin/markdown-preview', {
+    method: 'POST',
+    headers: csrf.value,
+    body,
+  })
+  return result.html
 }
-watch(markdown, (v) => {
-  if (mode.value === 'markdown') emit('update:modelValue', v)
+function conversionWarning(source: string) {
+  return /\$\$|\$[^$\n]+\$|\x60{3}(?:mermaid|math|latex|tex)|^\s*\|.+\|\s*$|^\s*[-*]\s+\[[ xX]\]|<(?:table|aside|details|figure|iframe)\b/im.test(source)
+}
+function visualConversionWarning(source: string) {
+  // Tables are handled by htmlToMarkdown, including an HTML fallback for
+  // layouts that cannot be expressed as a GFM pipe table.
+  return /\$\$|\$[^$\n]+\$|<(?:aside|details|figure|iframe)\b/i.test(source)
+}
+async function switchMode(next: 'visual' | 'markdown' | 'preview') {
+  if (next === mode.value) return
+  editorError.value = ''
+  if (next === 'preview') {
+    mode.value = 'preview'
+    previewLoading.value = true
+    previewError.value = ''
+    try {
+      previewHtml.value = await renderPreview(
+        contentSource.value === 'visual' && editor.value
+          ? { html: editor.value.getHTML() }
+          : { markdown: markdown.value },
+      )
+    } catch (error) {
+      previewError.value = (error as { data?: { message?: string } }).data?.message || '预览生成失败'
+    } finally {
+      previewLoading.value = false
+    }
+    return
+  }
+  if (next === 'visual' && contentSource.value === 'markdown' && editor.value) {
+    if (conversionWarning(markdown.value) &&
+      !window.confirm('复杂 Markdown 转入可视化编辑器后可能简化格式。建议留在 Markdown 模式编辑并使用 Preview 查看。仍要继续吗？'))
+      return
+    try {
+      const html = await renderPreview({ markdown: markdown.value })
+      suppress = true
+      try { editor.value.commands.setContent(html) } finally { suppress = false }
+    } catch (error) {
+      editorError.value = (error as { data?: { message?: string } }).data?.message || '无法打开可视化编辑器'
+      return
+    }
+  }
+  if (next === 'markdown' && contentSource.value === 'visual' && editor.value) {
+    const html = editor.value.getHTML()
+    if (visualConversionWarning(html) &&
+      !window.confirm('将复杂可视化内容转换为 Markdown 可能简化格式。仍要继续吗？'))
+      return
+    const converted = htmlToMarkdown(html)
+    mode.value = 'markdown'
+    contentSource.value = 'markdown'
+    markdown.value = converted
+    emit('update:modelValue', converted)
+    emit('update:html', '')
+    emit('update:json', undefined)
+    return
+  }
+  mode.value = next
+}
+watch(markdown, (value) => {
+  if (mode.value !== 'markdown') return
+  contentSource.value = 'markdown'
+  emit('update:modelValue', value)
+  emit('update:html', '')
+  emit('update:json', undefined)
+})
+onMounted(() => {
+  if (!props.json) {
+    emit('update:html', '')
+    emit('update:json', undefined)
+  }
 })
 onBeforeUnmount(() => editor.value?.destroy())
 </script>
@@ -351,6 +435,7 @@ onBeforeUnmount(() => editor.value?.destroy())
     >
       <div class="flex flex-wrap gap-1">
         <button
+          type="button"
           v-for="b in [
             { label: 'Bold', run: () => editor?.chain().focus().toggleBold().run() },
             { label: 'Italic', run: () => editor?.chain().focus().toggleItalic().run() },
@@ -370,18 +455,14 @@ onBeforeUnmount(() => editor.value?.destroy())
             { label: 'Code block', run: () => editor?.chain().focus().toggleCodeBlock().run() },
             {
               label: 'Table',
-              run: () =>
-                editor
-                  ?.chain()
-                  .focus()
-                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                  .run(),
+              run: openTableDialog,
             },
             { label: 'Undo', run: () => editor?.chain().focus().undo().run() },
             { label: 'Redo', run: () => editor?.chain().focus().redo().run() },
           ]"
           :key="b.label"
-          class="focus rounded px-2 py-1 text-xs hover:bg-black/5 dark:hover:bg-white/10"
+          :disabled="mode !== 'visual'"
+          class="focus rounded px-2 py-1 text-xs hover:bg-black/5 disabled:opacity-40 dark:hover:bg-white/10"
           :class="
             editor?.isActive(
               b.label === 'Bold'
@@ -402,7 +483,7 @@ onBeforeUnmount(() => editor.value?.destroy())
           @click="b.run"
         >
           {{ b.label }}</button
-        ><button class="focus rounded px-2 py-1 text-xs" @click="openMedia">图片/媒体</button
+        ><button type="button" :disabled="mode !== 'visual'" class="focus rounded px-2 py-1 text-xs disabled:opacity-40" @click="openMedia">图片/媒体</button
         ><label class="focus rounded px-2 py-1 text-xs cursor-pointer"
           >导入 .md<input
             ref="uploadInput"
@@ -414,6 +495,7 @@ onBeforeUnmount(() => editor.value?.destroy())
               importMarkdown(($event.target as HTMLInputElement).files![0]!)
             " /></label
         ><label class="focus rounded px-2 py-1 text-xs cursor-pointer"
+          :class="mode !== 'visual' ? 'pointer-events-none opacity-40' : ''"
           >插入图片<input
             type="file"
             accept="image/*"
@@ -428,6 +510,7 @@ onBeforeUnmount(() => editor.value?.destroy())
       </div>
       <div class="flex gap-1">
         <button
+          type="button"
           v-for="m in ['visual', 'markdown', 'preview'] as const"
           :key="m"
           class="rounded px-2 py-1 text-xs"
@@ -438,13 +521,32 @@ onBeforeUnmount(() => editor.value?.destroy())
         </button>
       </div>
     </div>
+    <div
+      v-if="mode === 'visual' && inTable"
+      class="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs"
+      style="border-color: var(--border)"
+    >
+      <span class="mr-1" style="color: var(--muted)">表格操作</span>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().addRowBefore().run()">上方加行</button>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().addRowAfter().run()">下方加行</button>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().addColumnBefore().run()">左侧加列</button>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().addColumnAfter().run()">右侧加列</button>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().deleteRow().run()">删除当前行</button>
+      <button type="button" class="rounded border px-2 py-1" @click="editor?.chain().focus().deleteColumn().run()">删除当前列</button>
+      <button type="button" class="rounded border border-red-300 px-2 py-1 text-red-700" @click="editor?.chain().focus().deleteTable().run()">删除整个表格</button>
+    </div>
+    <p v-if="editorError" class="px-5 pt-3 text-sm text-red-600">{{ editorError }}</p>
     <EditorContent v-if="mode === 'visual'" :editor="editor" /><textarea
       v-else-if="mode === 'markdown'"
       v-model="markdown"
       rows="24"
       class="w-full resize-y bg-transparent p-5 font-mono text-sm leading-7 outline-none"
     />
-    <div v-else class="prose min-h-[420px] max-w-none p-5" v-html="editor?.getHTML() || ''" />
+    <div v-else class="min-h-[420px] p-5">
+      <p v-if="previewLoading" class="text-sm" style="color: var(--muted)">正在生成预览…</p>
+      <p v-else-if="previewError" class="text-sm text-red-600">{{ previewError }}</p>
+      <ContentRenderer v-else :html="previewHtml" />
+    </div>
     <div
       v-if="slash.open && entries.length"
       class="fixed z-50 max-h-72 w-64 overflow-auto rounded-xl border p-1 shadow-xl"
@@ -456,6 +558,7 @@ onBeforeUnmount(() => editor.value?.destroy())
       }"
     >
       <button
+        type="button"
         v-for="(item, i) in entries"
         :key="item.label"
         class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm"
@@ -465,6 +568,30 @@ onBeforeUnmount(() => editor.value?.destroy())
         <span class="w-7 text-center">{{ item.icon }}</span
         >{{ item.label }}
       </button>
+    </div>
+    <div
+      v-if="tableDialog"
+      class="fixed inset-0 z-[60] bg-black/50 p-4"
+      @click.self="tableDialog = false"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="插入表格"
+        class="mx-auto mt-[20vh] w-full max-w-sm rounded-2xl p-5 shadow-xl"
+        style="background: var(--surface)"
+      >
+        <h2 class="text-lg font-semibold">插入表格</h2>
+        <p class="mt-1 text-sm" style="color: var(--muted)">选择 1–20 行和 1–20 列，插入后仍可增删行列。</p>
+        <div class="mt-4 flex gap-4">
+          <label class="flex-1 text-sm">行数<input v-model.number="tableRows" type="number" min="1" max="20" class="mt-1 w-full rounded border bg-transparent p-2"></label>
+          <label class="flex-1 text-sm">列数<input v-model.number="tableCols" type="number" min="1" max="20" class="mt-1 w-full rounded border bg-transparent p-2"></label>
+        </div>
+        <div class="mt-5 flex justify-end gap-3">
+          <button type="button" class="rounded px-3 py-2" @click="tableDialog = false">取消</button>
+          <button type="button" class="rounded px-3 py-2 text-white" style="background: var(--accent)" @click="insertTable">插入</button>
+        </div>
+      </section>
     </div>
     <div
       v-if="mediaOpen"
@@ -477,7 +604,7 @@ onBeforeUnmount(() => editor.value?.destroy())
       >
         <div class="flex justify-between">
           <h2 class="text-xl font-semibold">选择媒体</h2>
-          <button @click="mediaOpen = false">关闭</button>
+          <button type="button" @click="mediaOpen = false">关闭</button>
         </div>
         <label
           class="my-4 inline-block cursor-pointer rounded-lg px-4 py-2 text-white"
@@ -495,6 +622,7 @@ onBeforeUnmount(() => editor.value?.destroy())
         /></label>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <button
+            type="button"
             v-for="item in media"
             :key="item.id"
             class="rounded-lg border p-2 text-left"
