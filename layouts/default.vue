@@ -7,9 +7,48 @@ const applyTheme = () => { const dark = themeMode.value === 'dark' || (themeMode
 function toggleTheme(){themeMode.value=themeMode.value==='system'?'light':themeMode.value==='light'?'dark':'system';localStorage.setItem('color-mode',themeMode.value);applyTheme()}
 useHead(() => ({
   link: appearance.value?.faviconUrl ? [{ rel: 'icon', href: appearance.value.faviconUrl }] : [],
-  style: [{ innerHTML: `:root{--accent:${appearance.value?.accentColor||'#d75a32'};--content-width:${appearance.value?.contentWidth||1120}px;--article-width:${appearance.value?.articleWidth||760}px;--site-radius:${appearance.value?.radius||14}px;--body-font:${appearance.value?.bodyFont==='serif'?'Georgia,serif':'Inter,ui-sans-serif,system-ui'};--heading-font:${appearance.value?.headingFont==='serif'?'Georgia,serif':'Inter,ui-sans-serif,system-ui'};--mono-font:${appearance.value?.monoFont==='sans'?'Inter,ui-sans-serif,system-ui':'ui-monospace,monospace'}}` }],
+  style: [
+    { innerHTML: `:root{--accent:${appearance.value?.accentColor||'#d75a32'};--content-width:${appearance.value?.contentWidth||1120}px;--article-width:${appearance.value?.articleWidth||760}px;--site-radius:${appearance.value?.radius||14}px;--body-font:${appearance.value?.bodyFont==='serif'?'Georgia,serif':'Inter,ui-sans-serif,system-ui'};--heading-font:${appearance.value?.headingFont==='serif'?'Georgia,serif':'Inter,ui-sans-serif,system-ui'};--mono-font:${appearance.value?.monoFont==='sans'?'Inter,ui-sans-serif,system-ui':'ui-monospace,monospace'}}` },
+    ...(appearance.value?.customCss ? [{ innerHTML: appearance.value.customCss }] : []),
+  ],
 }))
 onMounted(()=>{themeMode.value=(['light','dark','system'].includes(localStorage.getItem('color-mode')||'')?localStorage.getItem('color-mode'):'system') as typeof themeMode.value;applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme)})
 onMounted(()=>addEventListener('keydown',(e: KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();searchOpen.value=true}}))
 </script>
-<template><div><header class="border-b" style="border-color:var(--border)"><div class="container h-20 flex items-center justify-between"><NuxtLink to="/" class="flex items-center gap-2 font-semibold text-xl tracking-tight"><img v-if="appearance?.logoUrl" :src="appearance.logoUrl" alt="" class="h-9 w-9 object-contain"><span>{{appearance?.siteName||'Northstar'}}<span style="color:var(--accent)">.</span><small v-if="appearance?.subtitle" class="block text-xs font-normal" style="color:var(--muted)">{{appearance.subtitle}}</small></span></NuxtLink><nav class="flex items-center gap-6 text-sm" aria-label="主导航"><div v-for="item in navigation?.header||[]" :key="item.id" class="group relative"><a :href="item.url" :target="item.newWindow?'_blank':undefined" :rel="item.newWindow?'noopener noreferrer':undefined">{{item.icon}} {{item.label}}</a><div v-if="item.children.length" class="absolute left-0 top-full z-20 hidden min-w-40 rounded-xl border p-2 shadow-lg group-hover:grid" style="background:var(--surface);border-color:var(--border)"><a v-for="child in item.children" :key="child.id" :href="child.url" :target="child.newWindow?'_blank':undefined" :rel="child.newWindow?'noopener noreferrer':undefined">{{child.icon}} {{child.label}}</a></div></div><button class="focus" aria-label="搜索" @click="searchOpen=true">⌕ <span class="hidden sm:inline">Ctrl K</span></button><button class="focus" :aria-label="`切换深色模式，当前${themeMode}`" @click="toggleTheme">◐ {{themeMode}}</button></nav></div></header><main><slot /></main><footer class="container mt-20 border-t py-12 text-sm" style="border-color:var(--border);color:var(--muted)"><div class="flex justify-between"><nav class="flex gap-5"><div v-for="item in navigation?.footer||[]" :key="item.id" class="flex flex-col"><a :href="item.url" :target="item.newWindow?'_blank':undefined" :rel="item.newWindow?'noopener noreferrer':undefined">{{item.label}}</a><a v-for="child in item.children" :key="child.id" :href="child.url" :target="child.newWindow?'_blank':undefined" :rel="child.newWindow?'noopener noreferrer':undefined" class="ml-3 text-xs">{{child.label}}</a></div></nav><p>© {{ new Date().getFullYear() }} {{appearance?.siteName||'Northstar'}}</p></div></footer><SearchDialog v-if="searchOpen" @close="searchOpen=false" /></div></template>
+<template>
+  <div>
+    <header class="border-b" style="border-color:var(--border)">
+      <div class="container h-20 flex items-center justify-between">
+        <NuxtLink to="/" class="flex items-center gap-2 font-semibold text-xl tracking-tight">
+          <img v-if="appearance?.logoUrl" :src="appearance.logoUrl" alt="" class="h-9 w-9 object-contain">
+          <span>{{appearance?.siteName||'Northstar'}}<span style="color:var(--accent)">.</span><small v-if="appearance?.subtitle" class="block text-xs font-normal" style="color:var(--muted)">{{appearance.subtitle}}</small></span>
+        </NuxtLink>
+        <nav class="flex items-center gap-6 text-sm" aria-label="主导航">
+          <div v-for="item in navigation?.header||[]" :key="item.id" class="group relative">
+            <a :href="item.url" :target="item.newWindow?'_blank':undefined" :rel="item.newWindow?'noopener noreferrer':undefined">{{item.icon}} {{item.label}}</a>
+            <div v-if="item.children.length" class="absolute left-0 top-full z-20 hidden min-w-40 rounded-xl border p-2 shadow-lg group-hover:grid" style="background:var(--surface);border-color:var(--border)">
+              <a v-for="child in item.children" :key="child.id" :href="child.url" :target="child.newWindow?'_blank':undefined" :rel="child.newWindow?'noopener noreferrer':undefined">{{child.icon}} {{child.label}}</a>
+            </div>
+          </div>
+          <button class="focus" aria-label="搜索" @click="searchOpen=true">⌕ <span class="hidden sm:inline">Ctrl K</span></button>
+          <button class="focus" :aria-label="`切换深色模式，当前${themeMode}`" @click="toggleTheme">◐ {{themeMode}}</button>
+        </nav>
+      </div>
+      <div v-if="appearance?.headerHtml" class="site-custom-html container pb-4 text-sm" v-html="appearance.headerHtml" />
+    </header>
+    <main><slot /></main>
+    <footer class="container mt-20 border-t py-12 text-sm" style="border-color:var(--border);color:var(--muted)">
+      <div class="flex justify-between">
+        <nav class="flex gap-5">
+          <div v-for="item in navigation?.footer||[]" :key="item.id" class="flex flex-col">
+            <a :href="item.url" :target="item.newWindow?'_blank':undefined" :rel="item.newWindow?'noopener noreferrer':undefined">{{item.label}}</a>
+            <a v-for="child in item.children" :key="child.id" :href="child.url" :target="child.newWindow?'_blank':undefined" :rel="child.newWindow?'noopener noreferrer':undefined" class="ml-3 text-xs">{{child.label}}</a>
+          </div>
+        </nav>
+        <p>© {{ new Date().getFullYear() }} {{appearance?.siteName||'Northstar'}}</p>
+      </div>
+      <div v-if="appearance?.footerHtml" class="site-custom-html mt-6" v-html="appearance.footerHtml" />
+    </footer>
+    <SearchDialog v-if="searchOpen" @close="searchOpen=false" />
+  </div>
+</template>

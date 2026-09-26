@@ -10,6 +10,7 @@
 .prose li:has(>input[type=checkbox]){list-style:none}.prose li>input[type=checkbox]{margin-right:.5em}
 .prose blockquote{border-left:3px solid var(--accent);padding:.25em 1em;color:var(--muted)}
 .prose a:not(.content-button){color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.site-custom-html a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
 .prose u{text-decoration:underline}.prose s,.prose del{text-decoration:line-through}
 .prose em,.tiptap-content em{font-style:italic;font-synthesis:style}
 .prose :not(pre)>code{border-radius:4px;background:var(--border);padding:.12em .3em;font-family:var(--mono-font);font-size:.9em}

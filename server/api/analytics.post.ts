@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { UAParser } from 'ua-parser-js'
 import { z } from 'zod'
 import { db } from '../utils/db'
+import { readSiteUrl } from '../utils/public-site-settings'
 import { rateLimit } from '../utils/security'
 const schema = z.object({
   path: z.string().min(1).max(500),
@@ -34,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (ref) {
     try {
       const u = new URL(ref)
-      const site = new URL(process.env.SITE_URL || getRequestURL(event).origin)
+      const site = new URL(await readSiteUrl(getRequestURL(event).origin))
       if (u.host !== site.host) referrer = u.origin.slice(0, 500)
     } catch {
       referrer = 'Direct'

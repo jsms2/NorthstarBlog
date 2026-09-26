@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
+import { readSiteUrl } from '../utils/public-site-settings'
 export default defineEventHandler(async (event) => {
-  const site = process.env.SITE_URL || getRequestURL(event).origin
+  const site = await readSiteUrl(getRequestURL(event).origin)
   const [posts, pages] = await Promise.all([
     db.post.findMany({
       where: { status: 'PUBLISHED', noindex: false, deletedAt: null, publishedAt: { lte: new Date() } },

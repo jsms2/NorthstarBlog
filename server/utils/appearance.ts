@@ -31,5 +31,7 @@ export const appearanceDefaults: z.infer<typeof appearanceSchema> = {
 export async function readAppearance() {
   const rows = await db.setting.findMany({ where: { key: { in: Object.keys(appearanceDefaults) } } })
   const stored = Object.fromEntries(rows.map(row => [row.key, row.value]))
+  if (!appearanceSchema.shape.siteName.safeParse(stored.siteName).success) delete stored.siteName
+  if (!appearanceSchema.shape.accentColor.safeParse(stored.accentColor).success) delete stored.accentColor
   return appearanceSchema.parse({ ...appearanceDefaults, ...stored })
 }

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 const route = useRoute()
 const { data, error } = await useFetch(`/api/public/pages/${route.params.slug}`)
+const { data: appearance } = await useFetch('/api/public/appearance')
 if (error.value) throw createError({ statusCode: 404, statusMessage: '页面不存在' })
 const origin = useRequestURL().origin
-const canonical = computed(() => data.value?.canonicalUrl || `${origin}/${data.value?.slug}`)
+const canonical = computed(() => data.value?.canonicalUrl || `${appearance.value?.siteUrl || origin}/${data.value?.slug}`)
 const title = computed(() => data.value?.seoTitle || data.value?.title || '')
 const description = computed(() => data.value?.seoDescription || data.value?.excerpt || '')
 const ogTitle = computed(() => data.value?.ogTitle || title.value)

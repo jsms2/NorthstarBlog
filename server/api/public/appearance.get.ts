@@ -1,2 +1,10 @@
 import { readAppearance } from '../../utils/appearance'
-export default defineEventHandler(() => readAppearance())
+import { readPublicSiteSettings } from '../../utils/public-site-settings'
+
+export default defineEventHandler(async (event) => {
+  const [appearance, settings] = await Promise.all([
+    readAppearance(),
+    readPublicSiteSettings(getRequestURL(event).origin),
+  ])
+  return { ...appearance, ...settings }
+})

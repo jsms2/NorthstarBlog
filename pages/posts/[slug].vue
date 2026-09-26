@@ -4,7 +4,7 @@ const { data: post, error } = await useFetch(`/api/public/posts/${route.params.s
 const { data: appearance } = await useFetch('/api/public/appearance')
 if (error.value) throw createError({ statusCode: 404, statusMessage: '文章不存在' })
 const origin = useRequestURL().origin
-const canonical = computed(() => post.value?.canonicalUrl || `${origin}/posts/${post.value?.slug}`)
+const canonical = computed(() => post.value?.canonicalUrl || `${appearance.value?.siteUrl || origin}/posts/${post.value?.slug}`)
 const title = computed(() => post.value?.seoTitle || post.value?.title || '')
 const description = computed(() => post.value?.seoDescription || post.value?.excerpt || '')
 const ogTitle = computed(() => post.value?.ogTitle || title.value)
