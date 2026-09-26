@@ -1,3 +1,3 @@
-import { z } from 'zod';import { getCookie } from 'h3';import { db } from '../../../utils/db';import { requireAdmin,requireCsrf,hash } from '../../../utils/security'
+import { z } from 'zod';import { db } from '../../../utils/db';import { requireAdmin,requireCsrf,hash } from '../../../utils/security'
 const s=z.object({id:z.string().optional(),others:z.boolean().optional()})
 export default defineEventHandler(async(event)=>{const admin=await requireAdmin(event);requireCsrf(event);const body=s.parse(await readBody(event));const token=getCookie(event,'northstar_session');const current=token?await db.session.findUnique({where:{tokenHash:hash(token)},select:{id:true}}):null;if(body.id){if(current?.id===body.id)throw createError({statusCode:400,statusMessage:'当前会话请使用退出登录'});await db.session.deleteMany({where:{id:body.id,adminId:admin.id}})}else if(body.others){await db.session.deleteMany({where:{adminId:admin.id,id:{not:current?.id||''}}})}return {ok:true}})

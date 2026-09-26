@@ -1,4 +1,3 @@
-import { setHeader } from 'h3'
 import { db } from '../utils/db'
 const x = (s: string) =>
   s.replace(

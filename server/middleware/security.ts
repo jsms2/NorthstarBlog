@@ -1,4 +1,3 @@
-import { setHeader } from 'h3'
 export default defineEventHandler((event) => {
   setResponseHeaders(event, {
     'X-Content-Type-Options': 'nosniff',

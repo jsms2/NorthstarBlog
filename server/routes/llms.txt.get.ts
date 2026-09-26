@@ -1,4 +1,3 @@
-import { setHeader } from 'h3'
 import { db } from '../utils/db'
 export default defineEventHandler(async (event) => {
   setHeader(event, 'content-type', 'text/plain; charset=utf-8')

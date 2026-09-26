@@ -1,4 +1,3 @@
-import { setHeader } from 'h3'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, relative, resolve, sep } from 'node:path'

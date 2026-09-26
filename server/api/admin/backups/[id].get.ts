@@ -1,7 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename, relative, resolve, sep, isAbsolute } from 'node:path'
-import { sendStream, setHeader } from 'h3'
 import { db } from '../../../utils/db'
 import { requireAdmin } from '../../../utils/security'
 

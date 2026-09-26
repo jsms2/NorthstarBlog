@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import { UAParser } from 'ua-parser-js'
-import { getCookie } from 'h3'
 import { z } from 'zod'
 import { db } from '../utils/db'
 import { rateLimit } from '../utils/security'

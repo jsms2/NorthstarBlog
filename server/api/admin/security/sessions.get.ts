@@ -1,2 +1,2 @@
-import { getCookie } from 'h3';import { db } from '../../../utils/db';import { requireAdmin,hash,sessionAgent } from '../../../utils/security'
+import { db } from '../../../utils/db';import { requireAdmin,hash,sessionAgent } from '../../../utils/security'
 export default defineEventHandler(async(event)=>{const admin=await requireAdmin(event);const token=getCookie(event,'northstar_session');const rows=await db.session.findMany({where:{adminId:admin.id,expiresAt:{gt:new Date()}},orderBy:{lastSeenAt:'desc'}});return rows.map(s=>({id:s.id,current:s.tokenHash===hash(token||''),createdAt:s.createdAt,lastSeenAt:s.lastSeenAt,...sessionAgent(s.userAgent),network:'Hidden for privacy'}))})
